@@ -34,12 +34,17 @@
         "metadata": {
           "description": "The Uri to the uploaded function zip file"
         }
+      },
+      "resourceGroupRoleAssignment": {
+          "type": "string",
+          "defaultValue": "[newGuid()]"
       }
     },
     "variables": {
       "customrpApiversion": "2018-09-01-preview",
-      "customProviderName": "public",
-      "serverFarmName": "functionPlan"
+      "customProviderName": "managedvault",
+      "serverFarmName": "functionPlan",
+      "msiAccessRoleId": "8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
     },
     "resources": [
       {
@@ -130,6 +135,21 @@
         }
       },
       {
+          "type": "Microsoft.Authorization/roleAssignments",
+          "apiVersion": "2019-04-01-preview",
+          "name": "[parameters('resourceGroupRoleAssignment')]",
+          "properties": {
+              "roleDefinitionId": "[concat(subscription().id, '/providers/Microsoft.Authorization/roleDefinitions/', variables('msiAccessRoleId'))]",
+              "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('funcname')), '2018-11-01', 'Full').identity.principalId]",
+              "delegatedManagedIdentityResourceId": "[concat(resourceGroup().id, '/providers/Microsoft.Web/sites/', parameters('funcname'))]",
+              "scope": "[resourceGroup().id]",
+              "principalType": "ServicePrincipal"
+          },
+          "dependsOn": [
+              "[concat('Microsoft.Web/sites/', parameters('funcname'))]"
+          ]
+      },
+      {
         "apiVersion": "[variables('customrpApiversion')]",
         "type": "Microsoft.CustomProviders/resourceProviders",
         "name": "[variables('customProviderName')]",
@@ -137,20 +157,8 @@
         "properties": {
           "actions": [
             {
-              "name": "ping",
+              "name": "backup",
               "routingType": "Proxy",
-              "endpoint": "[listSecrets(resourceId('Microsoft.Web/sites/functions', parameters('funcname'), 'HttpTrigger1'), '2018-02-01').trigger_url]"
-            },
-            {
-              "name": "users/contextAction",
-              "routingType": "Proxy",
-              "endpoint": "[listSecrets(resourceId('Microsoft.Web/sites/functions', parameters('funcname'), 'HttpTrigger1'), '2018-02-01').trigger_url]"
-            }
-          ],
-          "resourceTypes": [
-            {
-              "name": "users",
-              "routingType": "Proxy,Cache",
               "endpoint": "[listSecrets(resourceId('Microsoft.Web/sites/functions', parameters('funcname'), 'HttpTrigger1'), '2018-02-01').trigger_url]"
             }
           ]
